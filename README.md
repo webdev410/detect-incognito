@@ -3,7 +3,7 @@
 usage
 
 ```js
-window.detectIncognito().then((result) => {
+window.checkPrivateBrowsing().then((result) => {
 	console.log(result);
 });
 ```

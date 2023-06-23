@@ -25,7 +25,32 @@
 				<p class="text-lg leading-7 font-bold text-gray-500">
 					Open the console
 				</p>
+				<div class="mt-6">
+					<button
+						id="btn"
+						class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+					>
+					copy test snippet
+					</button>
+					<div id="confirmed"></div>
 			</div>
+			<script>
+				const copyButton=document.getElementById('btn');
+				const confirmed=document.getElementById('confirmed');
+				// copy snippet to clipboard
+				copyButton.addEventListener('click',()=>{
+					const snippet=`window.checkPrivateBrowsing().then((result) => {
+	console.log(result);
+});`;
+					navigator.clipboard.writeText(snippet);
+					console.log('copied to clipboard');
+					// show confirmation and then remove after 3 seconds
+					confirmed.innerHTML='copied to clipboard';
+					setTimeout(()=>{
+						confirmed.innerHTML='';
+					},3000);
+				});
+			</script>
 		</main>
 		<script
 			src="./script.js"

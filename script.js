@@ -1,22 +1,22 @@
-window.detectIncognito = function () {
-	return new Promise(function (resolve, reject) {
-		let browserName = 'Unknown';
+window.checkPrivateBrowsing = function () {
+	return new Promise(function (result, error) {
+		let userAgentName = 'Unknown';
 
-		function __callback(isPrivate) {
-			resolve({
-				isPrivate: isPrivate,
-				browserName: browserName,
+		function _respond(isIncognito) {
+			result({
+				isIncognito: isIncognito,
+				userAgentName: userAgentName,
 			});
 		}
 
-		function identifyChromium() {
-			const ua = navigator.userAgent;
-			if (ua.match(/Chrome/)) {
+		function classifyChromium() {
+			const uaString = navigator.userAgent;
+			if (uaString.match(/Chrome/)) {
 				if (navigator.brave !== undefined) {
 					return 'Brave';
-				} else if (ua.match(/Edg/)) {
+				} else if (uaString.match(/Edg/)) {
 					return 'Edge';
-				} else if (ua.match(/OPR/)) {
+				} else if (uaString.match(/OPR/)) {
 					return 'Opera';
 				}
 				return 'Chrome';
@@ -25,99 +25,103 @@ window.detectIncognito = function () {
 			}
 		}
 
-		function assertEvalToString(value) {
+		function validateEvalToString(value) {
 			return value === eval.toString().length;
 		}
 
-		function isSafari() {
-			const v = navigator.vendor;
+		function isSafariBrowser() {
+			const vendorString = navigator.vendor;
 			return (
-				v !== undefined && v.indexOf('Apple') === 0 && assertEvalToString(37)
+				vendorString !== undefined &&
+				vendorString.indexOf('Apple') === 0 &&
+				validateEvalToString(37)
 			);
 		}
 
-		function isChrome() {
-			const v = navigator.vendor;
+		function isChromeBrowser() {
+			const vendorString = navigator.vendor;
 			return (
-				v !== undefined && v.indexOf('Google') === 0 && assertEvalToString(33)
+				vendorString !== undefined &&
+				vendorString.indexOf('Google') === 0 &&
+				validateEvalToString(33)
 			);
 		}
 
-		function isFirefox() {
+		function isFirefoxBrowser() {
 			return (
 				document.documentElement !== undefined &&
 				document.documentElement.style.MozAppearance !== undefined &&
-				assertEvalToString(37)
+				validateEvalToString(37)
 			);
 		}
 
-		function isMSIE() {
-			return navigator.msSaveBlob !== undefined && assertEvalToString(39);
+		function isMSIEBrowser() {
+			return navigator.msSaveBlob !== undefined && validateEvalToString(39);
 		}
 
-		function newSafariTest() {
-			const tmp_name = String(Math.random());
+		function testNewSafari() {
+			const tempName = String(Math.random());
 
 			try {
-				const db = window.indexedDB.open(tmp_name, 1);
+				const tempDb = window.indexedDB.open(tempName, 1);
 
-				db.onupgradeneeded = function (i) {
-					const res = i.target?.result;
+				tempDb.onupgradeneeded = function (evt) {
+					const eventTargetResult = evt.target?.result;
 
 					try {
-						res
+						eventTargetResult
 							.createObjectStore('test', {
 								autoIncrement: true,
 							})
 							.put(new Blob());
 
-						__callback(false);
+						_respond(false);
 					} catch (e) {
 						// Handle known errors
-						let message = e;
+						let errorMessage = e;
 
 						if (e instanceof Error) {
-							message = e.message ?? e;
+							errorMessage = e.message ?? e;
 						}
 
-						if (typeof message !== 'string') {
-							return __callback(false);
+						if (typeof errorMessage !== 'string') {
+							return _respond(false);
 						}
 
-						const matchesExpectedError = /BlobURLs are not yet supported/.test(
-							message
+						const errorMatch = /BlobURLs are not yet supported/.test(
+							errorMessage
 						);
 
-						return __callback(matchesExpectedError);
+						return _respond(errorMatch);
 					} finally {
-						res.close();
-						window.indexedDB.deleteDatabase(tmp_name);
+						eventTargetResult.close();
+						window.indexedDB.deleteDatabase(tempName);
 					}
 				};
 
 				// Make sure to reject Promise in case of error
-				db.onerror = function (e) {
-					reject(new Error(`newSafariTest failed: ${e.message || e}`));
+				tempDb.onerror = function (e) {
+					error(new Error(`testNewSafari failed: ${e.message || e}`));
 				};
 			} catch (e) {
-				reject(new Error(`newSafariTest failed: ${e.message || e}`));
+				error(new Error(`testNewSafari failed: ${e.message || e}`));
 			}
 		}
 
-		function oldSafariTest() {
+		function testOldSafari() {
 			try {
 				window.openDatabase(null, null, null, null);
-				__callback(false);
+				_respond(false);
 			} catch (e) {
-				__callback(true);
+				_respond(true);
 			}
 
 			try {
 				window.localStorage.setItem('test', '1');
 				window.localStorage.removeItem('test');
-				__callback(false);
+				_respond(false);
 			} catch (e) {
-				__callback(true);
+				_respond(true);
 			}
 		}
 
@@ -125,7 +129,7 @@ window.detectIncognito = function () {
 		 * Chrome
 		 **/
 
-		function getQuotaLimit() {
+		function getHeapLimit() {
 			const w = window;
 			if (
 				w.performance !== undefined &&
@@ -138,19 +142,18 @@ window.detectIncognito = function () {
 		}
 
 		// >= 76
-		function storageQuotaChromePrivateTest() {
+		function testPrivateChromeNew() {
 			navigator.webkitTemporaryStorage.queryUsageAndQuota(
 				function (_, quota) {
-					const quotaInMib = Math.round(quota / (1024 * 1024));
-					const quotaLimitInMib =
-						Math.round(getQuotaLimit() / (1024 * 1024)) * 2;
+					const quotaMib = Math.round(quota / (1024 * 1024));
+					const quotaLimitMib = Math.round(getHeapLimit() / (1024 * 1024)) * 2;
 
-					__callback(quotaInMib < quotaLimitInMib);
+					_respond(quotaMib < quotaLimitMib);
 				},
 				function (e) {
-					reject(
+					error(
 						new Error(
-							'detectIncognito somehow failed to query storage quota: ' +
+							'checkPrivateBrowsing somehow failed to query storage quota: ' +
 								e.message
 						)
 					);
@@ -159,22 +162,22 @@ window.detectIncognito = function () {
 		}
 
 		// 50 to 75
-		function oldChromePrivateTest() {
+		function testPrivateChromeOld() {
 			const fs = window.webkitRequestFileSystem;
 			const success = function () {
-				__callback(false);
+				_respond(false);
 			};
-			const error = function () {
-				__callback(true);
+			const fail = function () {
+				_respond(true);
 			};
-			fs(0, 1, success, error);
+			fs(0, 1, success, fail);
 		}
 
-		function chromePrivateTest() {
+		function testPrivateChrome() {
 			if (self.Promise !== undefined && self.Promise.allSettled !== undefined) {
-				storageQuotaChromePrivateTest();
+				testPrivateChromeNew();
 			} else {
-				oldChromePrivateTest();
+				testPrivateChromeOld();
 			}
 		}
 
@@ -182,35 +185,36 @@ window.detectIncognito = function () {
 		 * Firefox
 		 **/
 
-		function firefoxPrivateTest() {
-			__callback(navigator.serviceWorker === undefined);
+		function testPrivateFirefox() {
+			_respond(navigator.serviceWorker === undefined);
 		}
 
 		/**
 		 * MSIE
 		 **/
 
-		function msiePrivateTest() {
-			__callback(window.indexedDB === undefined);
+		function testPrivateMSIE() {
+			_respond(window.indexedDB === undefined);
 		}
-		function main() {
-			if (isSafari()) {
-				browserName = 'Safari';
-				safariPrivateTest();
-			} else if (isChrome()) {
-				browserName = identifyChromium();
-				chromePrivateTest();
-			} else if (isFirefox()) {
-				browserName = 'Firefox';
-				firefoxPrivateTest();
-			} else if (isMSIE()) {
-				browserName = 'Internet Explorer';
-				msiePrivateTest();
+
+		function startCheck() {
+			if (isSafariBrowser()) {
+				userAgentName = 'Safari';
+				testNewSafari();
+			} else if (isChromeBrowser()) {
+				userAgentName = classifyChromium();
+				testPrivateChrome();
+			} else if (isFirefoxBrowser()) {
+				userAgentName = 'Firefox';
+				testPrivateFirefox();
+			} else if (isMSIEBrowser()) {
+				userAgentName = 'Internet Explorer';
+				testPrivateMSIE();
 			} else {
-				reject(new Error('detectIncognito cannot determine the browser'));
+				error(new Error('checkPrivateBrowsing cannot determine the browser'));
 			}
 		}
 
-		main();
+		startCheck();
 	});
 };
